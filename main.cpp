@@ -6,33 +6,26 @@
 #include <opencv4/opencv2/opencv.hpp>
 
 
-// Блокирующая очередь для хранения задач
 class BlockingQueue {
 private:
     std::queue<std::tuple<int, int, cv::Mat>> queue; // Очередь задач
     std::mutex mtx; // Мьютекс для синхронизации
-    std::condition_variable cv; // Условная переменная
+    std::condition_variable cond_var; // Условная переменная
     bool finished = false; // Флаг завершения работы
 
 public:
-    // Метод для добавления задачи в очередь
     void push(int startRow, int endRow, cv::Mat& image) {
         std::lock_guard<std::mutex> lock(mtx);
         queue.push({startRow, endRow, image}); 
-        cv.notify_one();
+        cond_var.notify_one();
     }
 
-    // Метод для извлечения задачи из очереди
     std::tuple<int, int, cv::Mat> pop() {
         std::unique_lock<std::mutex> lock(mtx); // Захватываем мьютекс
 
         // Ждём появления задачи или завершения работы
-        cv.wait(lock, [&]() {
-            // Условие выхода из ожидания: либо очередь не пуста, либо работа завершена
-            return !queue.empty() || finished;
-        });
+        cond_var.wait(lock, [&]() {return !queue.empty() || finished;});
 
-        // Если очередь пуста и работа завершена, возвращаем пустую задачу
         if (queue.empty()) {
             return std::make_tuple(0, 0, cv::Mat());
         }
@@ -43,11 +36,10 @@ public:
         return task;
     }
 
-    // Метод для установки флага завершения работы
     void finish() {
         std::lock_guard<std::mutex> lock(mtx);
         finished = true;
-        cv.notify_all();
+        cond_var.notify_all();
     }
 };
 
