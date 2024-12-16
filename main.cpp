@@ -17,9 +17,9 @@ private:
 public:
     // Метод для добавления задачи в очередь
     void push(int startRow, int endRow, cv::Mat& image) {
-        std::lock_guard<std::mutex> lock(mtx); // Захватываем мьютекс
-        queue.push({startRow, endRow, image}); // Добавляем задачу в очередь
-        cv.notify_one(); // Уведомляем один из ожидающих потоков
+        std::lock_guard<std::mutex> lock(mtx);
+        queue.push({startRow, endRow, image}); 
+        cv.notify_one();
     }
 
     // Метод для извлечения задачи из очереди
@@ -39,15 +39,15 @@ public:
 
         // Забираем первую задачу из очереди
         auto task = queue.front();
-        queue.pop(); // Удаляем задачу из очереди
+        queue.pop();
         return task;
     }
 
     // Метод для установки флага завершения работы
     void finish() {
-        std::lock_guard<std::mutex> lock(mtx); // Захватываем мьютекс
-        finished = true; // Устанавливаем флаг завершения работы
-        cv.notify_all(); // Уведомляем все ожидающие потоки
+        std::lock_guard<std::mutex> lock(mtx);
+        finished = true;
+        cv.notify_all();
     }
 };
 
@@ -94,9 +94,9 @@ void consumer(BlockingQueue& queue) {
             for (int j = 0; j < image.cols; ++j) {
                 cv::Vec3b& pixel = image.at<cv::Vec3b>(i, j);
 
-                u_int8_t& b = pixel[0]; // Синий канал
-                u_int8_t& g = pixel[1]; // Зелёный канал
-                u_int8_t& r = pixel[2]; // Красный канал
+                u_int8_t& b = pixel[0];
+                u_int8_t& g = pixel[1];
+                u_int8_t& r = pixel[2];
 
                 // Инверсия цветов
                 b = 255 - b;
@@ -105,4 +105,31 @@ void consumer(BlockingQueue& queue) {
             }
         }
     }
+}
+
+int main() {
+    cv::Mat image = cv::imread("image.jpg"); // Загрузка изображения
+    if (image.empty()) {
+        std::cerr << "Ошибка загрузки изображения!" << std::endl;
+        return -1;
+    }
+
+    BlockingQueue queue;
+    int numBlocks = 6;
+
+    std::thread producerThread(producer, std::ref(queue), std::ref(image), numBlocks);
+
+    std::vector<std::thread> consumerThreads;
+    for (int i = 0; i < 4; ++i) {
+        consumerThreads.emplace_back(consumer, std::ref(queue));
+    }
+
+    producerThread.join();
+
+    for (auto& thread : consumerThreads) {
+        thread.join();
+    }
+
+    cv::imwrite("output.jpg", image); // Сохраняем обработанное изображение
+    return 0;
 }
