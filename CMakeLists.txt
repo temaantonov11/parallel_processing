@@ -1,7 +1,13 @@
 cmake_minimum_required(VERSION 3.10)
-project(PARALELL_PROCESSING)
+project(PARALLEL_PROCESSING)
+
+set(CMAKE_CXX_STANDARD 11)
 
 find_package(OpenCV REQUIRED)
 
-add_executable(core_exec core.cpp)
-target_link_libraries(core_exec ${OpenCV_LIBS})
+include_directories(${OpenCV_INCLUDE_DIRS})
+
+add_executable(main main.cpp)
+
+# Линкуем библиотеки OpenCV
+target_link_libraries(main ${OpenCV_LIBS})
